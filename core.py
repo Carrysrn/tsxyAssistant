@@ -9,6 +9,8 @@ import pytesseract
 import requests
 import bs4
 import ini
+import cPickle
+
 try:
     import Image
 except:
@@ -43,7 +45,6 @@ class core(object):
         :param pwd:密码 最多30位
         """
         self._session = requests.session()
-        self._cookies = ''
         self._url_postpage = 'http://jiaowu.tsc.edu.cn/tscjw/cas/logon.action'
 
         self._url_mainpage = 'http://jiaowu.tsc.edu.cn/tscjw/MainFrm.html'
@@ -65,6 +66,7 @@ class core(object):
             'Referer': 'http://jiaowu.tsc.edu.cn/tscjw/cas/login.action',
             'Connection': 'keep-alive',
         }
+        self.cookiesLogin()
 
 
     def login(self):
@@ -102,7 +104,7 @@ class core(object):
             while (not randOK(text)):
                 imgurl = "http://jiaowu.tsc.edu.cn/tscjw/cas/genValidateCode?dateTime=" + \
                      str(datetime.datetime.now().strftime(GMT_FORMAT))
-                img = requests.get(imgurl, headers=self.headers)
+                img = self._session.get(imgurl, headers=self.headers)
 
                 self._cookies = img.cookies # 以后的模拟登录需要这个cookies
                 # 无须使用本地写权限/不会留下多余的验证码文件
@@ -142,9 +144,9 @@ class core(object):
             'randnumber': randnumber,
             'isPasswordPolicy': 1
         }
-        self._session.post(url = self._url_postpage, cookies = self._cookies, data = data, headers = self.headers)
+        self._session.post(url = self._url_postpage, data = data, headers = self.headers)
         # 获取主页HTML 判断是否成功登陆
-        r2 = self._session.get(url = self._url_mainpage, cookies = self._cookies, headers = self.headers)
+        r2 = self._session.get(url = self._url_mainpage, headers = self.headers)
         # 正则表达式 判断抓取的页面是否有登陆成功时会出现的值.对 就是这么丑 :)
         r = re.compile('<p>This.+frames')
         if not r.search(r2.text):
@@ -152,12 +154,7 @@ class core(object):
         else:
             print '模拟登陆成功!'
 
-
     def safeLogin(self):
-        """
-        所谓安全登陆就是一遍不成功则再试一遍，还不成功就再试一遍
-        :return:
-        """
         try:
             self.login()
         except LoginErr:
@@ -167,10 +164,79 @@ class core(object):
                 try:
                     self.login()
                 except LoginErr:
-                    print('模拟登陆失败!请检查账号密码是否正确 或 重试')
-                    return False
+                    return None
         return True
 
+
+    def cookiesLogin(self):
+        """
+        安全登陆:不断加载文件cookies/模拟登陆,直到登陆成功为止
+        :return:
+        """
+
+        def save_cookies(cookiesFile, cookies):
+            try:
+                with open(cookiesFile, 'w') as f:
+                    cPickle.dump(requests.utils.dict_from_cookiejar(cookies), f)
+                    print 'Saved'
+                    f.close()
+            except:
+                print 'Save cookies failed'
+
+        def load_cookies(cookiesFile):
+            try:
+                with open(cookiesFile, 'r') as f:
+                    cookies = requests.utils.cookiejar_from_dict(cPickle.load(f))
+                    f.close()
+            except:
+                cookies = ''
+            return cookies
+
+        cookiesFile = 'cookies'
+
+        while True:
+            cookies = load_cookies(cookiesFile)
+            if cookies != '':
+                self._session.cookies.update(cookies)
+                userCode = self.isLogin()
+                if userCode != None:
+                    return
+                else:
+                    try:
+                        print '1'
+                        self.login()
+                        save_cookies(cookiesFile, self._session.cookies)
+                    except LoginErr:
+                        print '登陆出错1'
+            else:
+                try:
+                    self.login()
+                    save_cookies(cookiesFile, self._session.cookies)
+                    return
+                except LoginErr:
+                    print '登陆出错2'
+
+    def getUserCode(self):
+        """
+        登陆状态下可以获取登录账户的UserCode
+        获取不到说明没有登陆
+        :return: 返回获取到的UserCode
+        """
+        url = 'http://jiaowu.tsc.edu.cn/tscjw/jw/common/showYearTerm.action'
+        t = self._session.get(url=url, headers=self.headers)
+        r = re.compile('"userCode":"(.+?)"')
+        try:
+            userCode = r.search(t.text).groups()[0]
+        except:
+            return None
+        if userCode == 'kingo.guest':
+            return None
+        return userCode
+
+    isLogin = getUserCode
+
+
+class Score(core):
     def getScore(self, userCode, scoreType):
         """
         提交表单获取分数页面HTML代码
@@ -203,38 +269,24 @@ class core(object):
             data = data_all
         else:
             data = data_new
-        r = self._session.post(url=self._url_score,data=data,
-                            headers=self.headers,
-                            cookies=self._cookies)
+        r = self._session.post(url=self._url_score, data=data,
+                               headers=self.headers)
         # print r.text
-        if not re.compile(r'<div pagetitle="pagetitle" style="width:256mm;font-size:20px;font-weight:bold;" align="center">').search(r.text):
+        if not re.compile(
+                r'<div pagetitle="pagetitle" style="width:256mm;font-size:20px;font-weight:bold;" align="center">').search(
+                r.text):
             raise GetErr
         return r.text
 
 
-    def safeGetScore(self, userCode, scoreType = 'new'):
-        try:
-            self.safeLogin()
-            html = self.getScore(userCode, scoreType)
-        except GetErr:
-            self.safeLogin()
-            try:
-                html = self.getScore(userCode, scoreType)
-            except:
-                try:
-                    html = self.getScore(userCode, scoreType)
-                except:
-                    return 'err'
-        return html
-
-
-    def webget(self, userCode, scoreType = 'new'):
+    def webget(self, userCode, scoreType='new'):
         """
         获取整理过的分数数据
         :param userCode:
         :param scoreType:
         :return:
         """
+
         def getStuInfo(soup):
             department = soup.find_all('div')[3].string.encode('utf-8').split('：')[1]
             grade = soup.find_all('div')[4].string.encode('utf-8').split('：')[1]
@@ -242,7 +294,7 @@ class core(object):
             stuName = soup.find_all('div')[6].string.encode('utf-8').split('：')[1]
             return grade + ' ' + stuName
 
-        html = self.safeGetScore(userCode, scoreType)
+        html = self.getScore(userCode, scoreType)
         """ 多行注释 :)
         f = open('1.html', 'wb')
         f.write(html.encode('utf-8'))
@@ -260,31 +312,11 @@ class core(object):
         return stuInfo + '\n' + allScore.encode('utf-8')
 
 
-    def getUserCode(self):
-        """
-        登陆状态下可以获取登录账户的UserCode
-        获取不到说明没有登陆
-        :return: 返回获取到的UserCode
-        """
-        url = 'http://jiaowu.tsc.edu.cn/tscjw/jw/common/showYearTerm.action'
-        t = self._session.get(url=url, headers=self.headers, cookies=self._cookies)
-        r = re.compile('"userCode":"(.+?)"')
-        try:
-            userCode = r.search(t.text).groups()[0]
-        except:
-            return None
-        if userCode == 'kingo.guest':
-            return None
-        return userCode
-
-    isLogin = getUserCode
-
-
 if __name__ == "__main__":
     # print li.safeGetScore('201400000006')
     # http://jiaowu.tsc.edu.cn/tscjw/jw/common/showYearTerm.action
-    li = core()
-    # li.login()
+    li = Score()
+    li.cookiesLogin()
     userCode = li.isLogin()
     print userCode
     print li.webget(userCode)

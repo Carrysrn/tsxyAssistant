@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #import saekvdb as sql # SAE免费的就用这个
 import radis_db as sql
-from core import core
+from core import Score, core
 from mail import mailToStu
 
 from urllib2 import unquote
@@ -78,7 +78,7 @@ class score:
 def _root(stuId, type = 'new'):
     userCode = sql.get('stuId:' + stuId)
     if userCode is not None:
-        return core().webget(userCode, type)
+        return Score().webget(userCode, type)
     else:
         return '没找到'
 
@@ -97,7 +97,7 @@ def _query(wxId, type='new'):
     # 执行查询
     userCode = sql.get('wxId+'+wxId)  # 数据库中查询学号对应的UserCode
     if userCode is not None:
-        return core().webget(userCode, type)
+        return Score().webget(userCode, type)
     else:
         return '请发送“绑定+学号+教务系统密码”进行绑定\n绑定仅仅为了确认您的身份，以防您的隐私泄露\n服务器不会保存您的密码\n为确保账号安全，绑定后请尽快修改您的密码'
 
