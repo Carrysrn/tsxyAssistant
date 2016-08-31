@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #import saekvdb as sql # SAE免费的就用这个
-import radis_db as sql
+import redis_db as sql
 from core import Score, core
 from mail import mailToStu
 
@@ -76,7 +76,7 @@ class score:
 """
 
 def _root(stuId, type = 'new'):
-    userCode = sql.get('stuId:' + stuId)
+    userCode = sql.getUserCodeByStuId(stuId)
     if userCode is not None:
         return Score().webget(userCode, type)
     else:
@@ -85,7 +85,7 @@ def _root(stuId, type = 'new'):
 def _bind(wxId, stuId, passwd):
     if sql.isbinded(wxId):
         return '你好像已经绑定了～请直接发送‘查询’查询成绩～'
-    user = core(stuId, passwd)
+    user = core(stuId, passwd, cookiesfile=False)
     if user.safeLogin():
         userCode = user.getUserCode()
         return sql.bind(wxId, userCode)
@@ -95,7 +95,7 @@ def _bind(wxId, stuId, passwd):
 
 def _query(wxId, type='new'):
     # 执行查询
-    userCode = sql.get('wxId+'+wxId)  # 数据库中查询学号对应的UserCode
+    userCode = sql.getUserCodeByWxId(wxId)  # 数据库中查询学号对应的UserCode
     if userCode is not None:
         return Score().webget(userCode, type)
     else:
@@ -109,11 +109,12 @@ def isQmail(email):
     if g == None:
         return False
     return True
+
 def _mail(wxId, email, type='new'):
     if isQmail(email):
         msg = sql.bindmail(wxId, email)
         if msg[0:2] == 'OK':
-            mailmsg = mailToStu(email, sql.get('wxId+'+wxId))
+            mailmsg = mailToStu(email, sql.getUserCodeByWxId(wxId))
             if mailmsg[0:2] == 'ER':
                 return mailmsg
             return msg + '\n稍后您将接收到一封包含您最新成绩的邮件'

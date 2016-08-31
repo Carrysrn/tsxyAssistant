@@ -44,8 +44,8 @@ def sentHtmlMail(to, html, subject):
 
 
 def mailToStu(stuMail ,userCode, type="new"):
-    from core import core
-    html = core().safeGetScore(userCode,type)
+    from core import Score
+    html = Score().getScore(userCode,type)
     try:
         sentHtmlMail(stuMail, html,"您的最新成绩 - 唐院社团联合会")
         return 'OK 邮件发送成功'

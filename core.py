@@ -37,7 +37,7 @@ class NothingErr(GetErr):
 
 
 class core(object):
-    def __init__(self, stu = iniGet('stu'), pwd = iniGet('pwd')):
+    def __init__(self, stu = iniGet('stu'), pwd = iniGet('pwd'), cookiesfile = True):
         """
         初始化对象
         简单的判断学号及密码是否符合要求
@@ -66,7 +66,8 @@ class core(object):
             'Referer': 'http://jiaowu.tsc.edu.cn/tscjw/cas/login.action',
             'Connection': 'keep-alive',
         }
-        self.cookiesLogin()
+        if cookiesfile:
+            self.cookiesLogin()
 
 
     def login(self):
