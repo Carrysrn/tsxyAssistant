@@ -8,9 +8,11 @@ from urllib2 import unquote
 
 import web
 
+
 class score:
     def GET(self):
         return 'POST it please.'
+
     def POST(self):
         data = postDatatoDict(web.data())# 获取POST中的 do键值对
         try:
@@ -18,7 +20,13 @@ class score:
             wxId = data['wxId']
             do = cmdList[0]
         except:
-            return '参数错误！注意命令里不要有空格，并且确保使用的是英文的加号'
+            try:
+                assert data['do'] == 'cmd'
+                cmdList = data['content'].split('+')
+                wxId = data['wxID']
+                do = cmdList[0]
+            except:
+                return '参数错误！注意命令里不要有空格，并且确保使用的是英文的加号'
 
         tt = ['查分', '查询', '分数', '成绩']
         if do == '邮箱':
@@ -75,12 +83,14 @@ class score:
 资金捉急，目前仅仅支持QQ邮箱，敬请谅解
 """
 
+
 def _root(stuId, type = 'new'):
     userCode = sql.getUserCodeByStuId(stuId)
     if userCode is not None:
         return Score().webget(userCode, type)
     else:
         return '没找到'
+
 
 def _bind(wxId, stuId, passwd):
     if sql.isbinded(wxId):
@@ -109,6 +119,7 @@ def isQmail(email):
     if g == None:
         return False
     return True
+
 
 def _mail(wxId, email, type='new'):
     if isQmail(email):

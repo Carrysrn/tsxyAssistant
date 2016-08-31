@@ -3,7 +3,8 @@ import web
 from webapi import score
 urls = (
     '/', 'Hello',
-    '/tsxy', 'score'
+    '/tsxy', 'score',
+    '/weix/', 'score'
 )
 
 class Hello:
