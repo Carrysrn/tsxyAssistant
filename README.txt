@@ -30,3 +30,7 @@ pwd = (密码)
  $ sudo pip install -r requirements.txt
  $ uwsgi --http :9999 -w index
 ```
+
+功能介绍:
+1. 模拟登陆
+

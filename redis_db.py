@@ -59,7 +59,7 @@ def check_set(key, value):
 
 
 def bind(wxId, userCode):
-    #userCode = get('stuId+' +  stuId)
+    # userCode = get('stuId+' +  stuId)
     if userCode is None:
         return '找不到学号对应用户码，请反馈'
     try:
@@ -100,3 +100,10 @@ def getUserCodeByStuId(stuId):
 def getUserCodeByWxId(wxId):
     userCode = get('wxId|' + wxId)
     return userCode
+
+def setStuIdToWxId(stuId, userCode):
+    check_set('stuId|' + stuId, userCode)
+
+def setBind(wxId, userCode):
+    check_set('wxId|' + wxId, userCode)
+
